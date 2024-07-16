@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"sync"
-	"time"
 )
 
 type FetchResult struct {
@@ -36,6 +35,7 @@ func Fetcher(urls []string, fetchResults chan<- FetchResult, wg *sync.WaitGroup)
 		}
 		fetchResults <- FetchResult{URL: url, Body: string(body), Err: nil}
 	}
+	close(fetchResults)
 }
 
 func Processor(fetchResults <-chan FetchResult, processedResults chan<- ProcessedResult, wg *sync.WaitGroup) {
@@ -47,6 +47,7 @@ func Processor(fetchResults <-chan FetchResult, processedResults chan<- Processe
 		}
 		processedResults <- ProcessedResult{URL: fetchResult.URL, Length: len(fetchResult.Body), Err: nil}
 	}
+	close(processedResults)
 }
 
 func Aggregator(processedResults <-chan ProcessedResult, wg *sync.WaitGroup) {
@@ -81,11 +82,5 @@ func main() {
 	wg.Add(1)
 	go Aggregator(processedResults, &wg)
 
-	go func() {
-		wg.Wait()
-		close(fetchResults)
-		close(processedResults)
-	}()
-
-	time.Sleep(5 * time.Second)
+	wg.Wait()
 }
